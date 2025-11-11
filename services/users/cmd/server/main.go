@@ -77,6 +77,8 @@ func main() {
 	// Public routes
 	router.HandleFunc("/api/users/register", authHandler.Register).Methods("POST")
 	router.HandleFunc("/api/users/login", authHandler.Login).Methods("POST")
+	router.HandleFunc("/api/users/refresh", authHandler.RefreshToken).Methods("POST")
+	router.HandleFunc("/api/users/logout", authHandler.Logout).Methods("POST")
 	router.HandleFunc("/health", healthCheck(log)).Methods("GET")
 
 	// Protected routes

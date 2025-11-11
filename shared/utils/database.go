@@ -14,20 +14,25 @@ var (
 	ErrUserNotFound      = errors.New("user not found")
 	ErrUserAlreadyExists = errors.New("user already exists")
 	ErrInvalidPassword   = errors.New("invalid password")
+	ErrTokenNotFound     = errors.New("refresh token not found")
+	ErrTokenExpired      = errors.New("refresh token expired")
+	ErrTokenRevoked      = errors.New("refresh token revoked")
 )
 
 // MemoryDB is a shared in-memory database
 type MemoryDB struct {
-	users  map[string]*models.User
-	emails map[string]string
-	mu     sync.RWMutex
+	users         map[string]*models.User
+	emails        map[string]string
+	refreshTokens map[string]*models.RefreshToken
+	mu            sync.RWMutex
 }
 
 // NewMemoryDB creates a new in-memory database
 func NewMemoryDB() *MemoryDB {
 	return &MemoryDB{
-		users:  make(map[string]*models.User),
-		emails: make(map[string]string),
+		users:         make(map[string]*models.User),
+		emails:        make(map[string]string),
+		refreshTokens: make(map[string]*models.RefreshToken),
 	}
 }
 
@@ -175,4 +180,88 @@ func (db *MemoryDB) ListUsers(page, limit int) ([]*models.User, int, error) {
 	}
 
 	return users[start:end], total, nil
+}
+
+// CreateRefreshToken creates a new refresh token
+func (db *MemoryDB) CreateRefreshToken(userID, token string, expiresAt time.Time) (*models.RefreshToken, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	refreshToken := &models.RefreshToken{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Token:     token,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+		Revoked:   false,
+	}
+
+	db.refreshTokens[token] = refreshToken
+	return refreshToken, nil
+}
+
+// GetRefreshToken retrieves a refresh token
+func (db *MemoryDB) GetRefreshToken(token string) (*models.RefreshToken, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	refreshToken, exists := db.refreshTokens[token]
+	if !exists {
+		return nil, ErrTokenNotFound
+	}
+
+	// Check if token is expired
+	if time.Now().After(refreshToken.ExpiresAt) {
+		return nil, ErrTokenExpired
+	}
+
+	// Check if token is revoked
+	if refreshToken.Revoked {
+		return nil, ErrTokenRevoked
+	}
+
+	return refreshToken, nil
+}
+
+// RevokeRefreshToken revokes a specific refresh token
+func (db *MemoryDB) RevokeRefreshToken(token string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	refreshToken, exists := db.refreshTokens[token]
+	if !exists {
+		return ErrTokenNotFound
+	}
+
+	refreshToken.Revoked = true
+	return nil
+}
+
+// RevokeAllUserTokens revokes all refresh tokens for a user
+func (db *MemoryDB) RevokeAllUserTokens(userID string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	for _, token := range db.refreshTokens {
+		if token.UserID == userID && !token.Revoked {
+			token.Revoked = true
+		}
+	}
+
+	return nil
+}
+
+// CleanupExpiredTokens removes expired tokens from the database
+func (db *MemoryDB) CleanupExpiredTokens() error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	now := time.Now()
+	for token, refreshToken := range db.refreshTokens {
+		if now.After(refreshToken.ExpiresAt) {
+			delete(db.refreshTokens, token)
+		}
+	}
+
+	return nil
 }

@@ -246,3 +246,115 @@ func (d *PostgresDB) ListUsers(page, limit int) ([]*models.User, int, error) {
 
 	return users, total, nil
 }
+
+// CreateRefreshToken creates a new refresh token
+func (d *PostgresDB) CreateRefreshToken(userID, token string, expiresAt time.Time) (*models.RefreshToken, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	refreshToken := &models.RefreshToken{
+		UserID:    userID,
+		Token:     token,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+		Revoked:   false,
+	}
+
+	query := `INSERT INTO refresh_tokens (user_id, token, expires_at, created_at, revoked)
+			  VALUES ($1, $2, $3, $4, $5)
+			  RETURNING id`
+
+	err := d.db.QueryRowContext(ctx, query, refreshToken.UserID, refreshToken.Token,
+		refreshToken.ExpiresAt, refreshToken.CreatedAt, refreshToken.Revoked).Scan(&refreshToken.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create refresh token: %w", err)
+	}
+
+	return refreshToken, nil
+}
+
+// GetRefreshToken retrieves a refresh token
+func (d *PostgresDB) GetRefreshToken(token string) (*models.RefreshToken, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	refreshToken := &models.RefreshToken{}
+	query := `SELECT id, user_id, token, expires_at, created_at, revoked
+			  FROM refresh_tokens
+			  WHERE token = $1`
+
+	err := d.db.QueryRowContext(ctx, query, token).Scan(
+		&refreshToken.ID, &refreshToken.UserID, &refreshToken.Token,
+		&refreshToken.ExpiresAt, &refreshToken.CreatedAt, &refreshToken.Revoked,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrTokenNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get refresh token: %w", err)
+	}
+
+	// Check if token is expired
+	if time.Now().After(refreshToken.ExpiresAt) {
+		return nil, ErrTokenExpired
+	}
+
+	// Check if token is revoked
+	if refreshToken.Revoked {
+		return nil, ErrTokenRevoked
+	}
+
+	return refreshToken, nil
+}
+
+// RevokeRefreshToken revokes a specific refresh token
+func (d *PostgresDB) RevokeRefreshToken(token string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `UPDATE refresh_tokens SET revoked = true WHERE token = $1`
+	result, err := d.db.ExecContext(ctx, query, token)
+	if err != nil {
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return ErrTokenNotFound
+	}
+
+	return nil
+}
+
+// RevokeAllUserTokens revokes all refresh tokens for a user
+func (d *PostgresDB) RevokeAllUserTokens(userID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `UPDATE refresh_tokens SET revoked = true WHERE user_id = $1 AND revoked = false`
+	_, err := d.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to revoke user tokens: %w", err)
+	}
+
+	return nil
+}
+
+// CleanupExpiredTokens removes expired tokens from the database
+func (d *PostgresDB) CleanupExpiredTokens() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `DELETE FROM refresh_tokens WHERE expires_at < $1`
+	_, err := d.db.ExecContext(ctx, query, time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to cleanup expired tokens: %w", err)
+	}
+
+	return nil
+}
