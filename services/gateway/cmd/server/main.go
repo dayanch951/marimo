@@ -38,8 +38,16 @@ var localServices = map[string]string{
 func main() {
 	router := mux.NewRouter()
 
-	// Health check
+	// Health check (no rate limit)
 	router.HandleFunc("/health", healthCheck).Methods("GET")
+
+	// Configure rate limiting
+	rateLimiter := middleware.NewEndpointRateLimiter(60, 10) // Default: 60 req/min, burst 10
+
+	// Stricter limits for authentication endpoints
+	rateLimiter.AddEndpoint("/api/users/login", 10, 3)       // 10 req/min, burst 3
+	rateLimiter.AddEndpoint("/api/users/register", 5, 2)     // 5 req/min, burst 2
+	rateLimiter.AddEndpoint("/api/users/refresh", 30, 5)     // 30 req/min, burst 5
 
 	// API Gateway routes
 	router.PathPrefix("/api/users").HandlerFunc(proxyHandler("users"))
@@ -49,10 +57,15 @@ func main() {
 	router.PathPrefix("/api/shop").HandlerFunc(proxyHandler("shop"))
 	router.PathPrefix("/api/main").HandlerFunc(proxyHandler("main"))
 
-	// Apply CORS
-	handler := middleware.CORS(router)
+	// Apply middlewares: Rate Limiting -> CORS
+	handler := middleware.CORS(rateLimiter.Middleware()(router))
 
 	log.Printf("API Gateway starting on port %s", port)
+	log.Println("Rate limiting enabled:")
+	log.Println("  - Default: 60 req/min (burst 10)")
+	log.Println("  - Login: 10 req/min (burst 3)")
+	log.Println("  - Register: 5 req/min (burst 2)")
+	log.Println("  - Refresh: 30 req/min (burst 5)")
 	log.Println("Available services:")
 	for name, url := range services {
 		log.Printf("  - %s: %s", name, url)

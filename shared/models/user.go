@@ -13,6 +13,16 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// RefreshToken represents a refresh token in the system
+type RefreshToken struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+	Revoked   bool      `json:"revoked"`
+}
+
 // Role types
 const (
 	RoleAdmin     = "admin"

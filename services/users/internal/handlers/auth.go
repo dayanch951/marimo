@@ -7,6 +7,8 @@ import (
 	"github.com/dayanch951/marimo/shared/database"
 	"github.com/dayanch951/marimo/shared/middleware"
 	"github.com/dayanch951/marimo/shared/models"
+	"github.com/dayanch951/marimo/shared/utils"
+	"github.com/dayanch951/marimo/shared/validator"
 )
 
 type AuthHandler struct {
@@ -29,10 +31,18 @@ type RegisterRequest struct {
 }
 
 type AuthResponse struct {
-	Success bool         `json:"success"`
-	Message string       `json:"message"`
-	Token   string       `json:"token,omitempty"`
-	User    *models.User `json:"user,omitempty"`
+	Success      bool               `json:"success"`
+	Message      string             `json:"message"`
+	Token        string             `json:"token,omitempty"` // Deprecated: use TokenPair
+	User         *models.User       `json:"user,omitempty"`
+	AccessToken  string             `json:"access_token,omitempty"`
+	RefreshToken string             `json:"refresh_token,omitempty"`
+	ExpiresIn    int64              `json:"expires_in,omitempty"`
+	TokenType    string             `json:"token_type,omitempty"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -45,17 +55,36 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Email == "" || req.Password == "" || req.Name == "" {
+	// Validate email
+	if err := validator.ValidateEmail(req.Email); err != nil {
 		respondJSON(w, http.StatusBadRequest, AuthResponse{
 			Success: false,
-			Message: "Email, password, and name are required",
+			Message: "Invalid email format",
+		})
+		return
+	}
+
+	// Validate password
+	if err := validator.ValidatePassword(req.Password, validator.DefaultPasswordRequirements()); err != nil {
+		respondJSON(w, http.StatusBadRequest, AuthResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	// Validate name
+	if err := validator.ValidateName(req.Name); err != nil {
+		respondJSON(w, http.StatusBadRequest, AuthResponse{
+			Success: false,
+			Message: "Invalid name format",
 		})
 		return
 	}
 
 	user, err := h.db.CreateUser(req.Email, req.Password, req.Name, models.RoleUser)
 	if err != nil {
-		if err == utils.ErrUserAlreadyExists {
+		if err == database.ErrUserAlreadyExists {
 			respondJSON(w, http.StatusConflict, AuthResponse{
 				Success: false,
 				Message: "User already exists",
@@ -86,6 +115,24 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate email
+	if err := validator.ValidateEmail(req.Email); err != nil {
+		respondJSON(w, http.StatusBadRequest, AuthResponse{
+			Success: false,
+			Message: "Invalid email format",
+		})
+		return
+	}
+
+	// Basic password check (don't reveal requirements on login)
+	if req.Password == "" || len(req.Password) > 128 {
+		respondJSON(w, http.StatusBadRequest, AuthResponse{
+			Success: false,
+			Message: "Invalid password",
+		})
+		return
+	}
+
 	user, err := h.db.ValidatePassword(req.Email, req.Password)
 	if err != nil {
 		respondJSON(w, http.StatusUnauthorized, AuthResponse{
@@ -95,20 +142,34 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := middleware.GenerateToken(user.ID, user.Email, user.Role)
+	// Generate token pair (access + refresh)
+	tokenPair, refreshToken, refreshExpiry, err := utils.GenerateTokenPair(user)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, AuthResponse{
 			Success: false,
-			Message: "Failed to generate token",
+			Message: "Failed to generate tokens",
+		})
+		return
+	}
+
+	// Store refresh token in database
+	_, err = h.db.CreateRefreshToken(user.ID, refreshToken, refreshExpiry)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, AuthResponse{
+			Success: false,
+			Message: "Failed to store refresh token",
 		})
 		return
 	}
 
 	respondJSON(w, http.StatusOK, AuthResponse{
-		Success: true,
-		Message: "Login successful",
-		Token:   token,
-		User:    user,
+		Success:      true,
+		Message:      "Login successful",
+		User:         user,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		TokenType:    tokenPair.TokenType,
 	})
 }
 
@@ -177,6 +238,119 @@ func (h *AuthHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, AuthResponse{
 		Success: true,
 		Message: "Role assigned successfully",
+	})
+}
+
+// RefreshToken refreshes an access token using a refresh token
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	var req RefreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, AuthResponse{
+			Success: false,
+			Message: "Invalid request body",
+		})
+		return
+	}
+
+	if req.RefreshToken == "" {
+		respondJSON(w, http.StatusBadRequest, AuthResponse{
+			Success: false,
+			Message: "Refresh token is required",
+		})
+		return
+	}
+
+	// Validate refresh token
+	storedToken, err := h.db.GetRefreshToken(req.RefreshToken)
+	if err != nil {
+		if err == database.ErrTokenNotFound || err == database.ErrTokenExpired || err == database.ErrTokenRevoked {
+			respondJSON(w, http.StatusUnauthorized, AuthResponse{
+				Success: false,
+				Message: "Invalid or expired refresh token",
+			})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, AuthResponse{
+			Success: false,
+			Message: "Failed to validate refresh token",
+		})
+		return
+	}
+
+	// Get user
+	user, err := h.db.GetUserByID(storedToken.UserID)
+	if err != nil {
+		respondJSON(w, http.StatusNotFound, AuthResponse{
+			Success: false,
+			Message: "User not found",
+		})
+		return
+	}
+
+	// Generate new token pair
+	tokenPair, newRefreshToken, refreshExpiry, err := utils.GenerateTokenPair(user)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, AuthResponse{
+			Success: false,
+			Message: "Failed to generate tokens",
+		})
+		return
+	}
+
+	// Revoke old refresh token
+	if err := h.db.RevokeRefreshToken(req.RefreshToken); err != nil {
+		// Log error but don't fail the request
+	}
+
+	// Store new refresh token
+	_, err = h.db.CreateRefreshToken(user.ID, newRefreshToken, refreshExpiry)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, AuthResponse{
+			Success: false,
+			Message: "Failed to store refresh token",
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, AuthResponse{
+		Success:      true,
+		Message:      "Token refreshed successfully",
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		TokenType:    tokenPair.TokenType,
+	})
+}
+
+// Logout revokes a refresh token
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var req RefreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, AuthResponse{
+			Success: false,
+			Message: "Invalid request body",
+		})
+		return
+	}
+
+	if req.RefreshToken != "" {
+		// Revoke the specific refresh token
+		if err := h.db.RevokeRefreshToken(req.RefreshToken); err != nil {
+			// Log error but don't fail - token might already be revoked
+		}
+	}
+
+	// Optionally revoke all user tokens if user is authenticated
+	claims, ok := r.Context().Value(middleware.UserContextKey).(*middleware.Claims)
+	if ok {
+		if err := h.db.RevokeAllUserTokens(claims.UserID); err != nil {
+			// Log error but don't fail
+		}
+	}
+
+	respondJSON(w, http.StatusOK, AuthResponse{
+		Success: true,
+		Message: "Logged out successfully",
 	})
 }
 
