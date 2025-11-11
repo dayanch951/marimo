@@ -1,0 +1,33 @@
+# Generic Dockerfile for all Go services
+FROM golang:1.21-alpine AS builder
+
+ARG SERVICE_PATH
+
+WORKDIR /app
+
+# Copy shared module first
+COPY shared/ ./shared/
+
+# Copy service module
+COPY ${SERVICE_PATH}/go.mod ${SERVICE_PATH}/go.sum* ./service/
+WORKDIR /app/service
+RUN go mod download || true
+
+# Copy service source
+WORKDIR /app
+COPY ${SERVICE_PATH}/ ./service/
+
+# Build
+WORKDIR /app/service
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server ./cmd/server
+
+# Final stage
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+
+COPY --from=builder /app/service/server .
+
+CMD ["./server"]
