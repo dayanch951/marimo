@@ -1,0 +1,83 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "create": "Создать",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "export": "Экспорт",
+    "import": "Импорт",
+    "refresh": "Обновить",
+    "back": "Назад",
+    "next": "Далее",
+    "previous": "Предыдущий",
+    "submit": "Отправить",
+    "close": "Закрыть"
+  },
+  "auth": {
+    "login": "Войти",
+    "logout": "Выйти",
+    "register": "Регистрация",
+    "email": "Email",
+    "password": "Пароль",
+    "confirmPassword": "Подтвердите пароль",
+    "firstName": "Имя",
+    "lastName": "Фамилия",
+    "forgotPassword": "Забыли пароль?",
+    "rememberMe": "Запомнить меня",
+    "dontHaveAccount": "Нет аккаунта?",
+    "alreadyHaveAccount": "Уже есть аккаунт?",
+    "registerHere": "Зарегистрироваться",
+    "loginHere": "Войти",
+    "loginSuccess": "Вход выполнен успешно",
+    "registerSuccess": "Регистрация прошла успешно",
+    "logoutSuccess": "Выход выполнен успешно",
+    "invalidCredentials": "Неверный email или пароль",
+    "emailRequired": "Email обязателен",
+    "emailInvalid": "Введите корректный email",
+    "passwordRequired": "Пароль обязателен",
+    "passwordMinLength": "Пароль должен содержать минимум 8 символов",
+    "passwordMismatch": "Пароли не совпадают"
+  },
+  "nav": {
+    "dashboard": "Панель управления",
+    "users": "Пользователи",
+    "config": "Конфигурация",
+    "accounting": "Бухгалтерия",
+    "factory": "Производство",
+    "shop": "Магазин",
+    "settings": "Настройки",
+    "profile": "Профиль"
+  },
+  "dashboard": {
+    "welcome": "Добро пожаловать в Marimo ERP",
+    "overview": "Обзор",
+    "statistics": "Статистика",
+    "recentActivity": "Последняя активность",
+    "quickActions": "Быстрые действия"
+  },
+  "errors": {
+    "somethingWentWrong": "Что-то пошло не так",
+    "pageNotFound": "Страница не найдена",
+    "unauthorized": "Несанкционированный доступ",
+    "forbidden": "Доступ запрещен",
+    "serverError": "Ошибка сервера",
+    "networkError": "Ошибка сети",
+    "tryAgain": "Попробовать снова",
+    "goHome": "На главную"
+  },
+  "settings": {
+    "theme": "Тема",
+    "language": "Язык",
+    "notifications": "Уведомления",
+    "appearance": "Внешний вид",
+    "light": "Светлая",
+    "dark": "Темная",
+    "system": "Системная"
+  }
+}
