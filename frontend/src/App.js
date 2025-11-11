@@ -3,13 +3,19 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
-import Dashboard from './components/Dashboard';
+import Layout from './components/Layout';
+import DashboardPage from './components/modules/Dashboard';
+import Users from './components/modules/Users';
+import Config from './components/modules/Config';
+import Accounting from './components/modules/Accounting';
+import Factory from './components/modules/Factory';
+import Shop from './components/modules/Shop';
 import './App.css';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
   const { token } = useAuth();
-  return token ? children : <Navigate to="/login" />;
+  return token ? <Layout>{children}</Layout> : <Navigate to="/login" />;
 };
 
 // Public Route component (redirect to dashboard if logged in)
@@ -24,7 +30,7 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
-            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="/" element={<Navigate to="/dashboard" />} />
             <Route
               path="/login"
               element={
@@ -45,7 +51,47 @@ function App() {
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute>
+                  <Users />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/config"
+              element={
+                <ProtectedRoute>
+                  <Config />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounting"
+              element={
+                <ProtectedRoute>
+                  <Accounting />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/factory"
+              element={
+                <ProtectedRoute>
+                  <Factory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shop"
+              element={
+                <ProtectedRoute>
+                  <Shop />
                 </ProtectedRoute>
               }
             />

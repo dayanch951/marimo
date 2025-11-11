@@ -1,277 +1,333 @@
-# Marimo - Go Microservice with React Authentication
+# Marimo ERP - Микросервисная архитектура
 
-Полнофункциональное веб-приложение с микросервисной архитектурой, включающее:
-- **Backend**: Go микросервис с REST API и gRPC
-- **Frontend**: React SPA с аутентификацией
-- **Authentication**: JWT-based аутентификация
+Полнофункциональная ERP-система с микросервисной архитектурой на Go и React.
 
 ## Архитектура
 
-### Backend (Go)
-- **REST API** на порту `8080`
-- **gRPC сервис** на порту `50051`
-- JWT токены для аутентификации
-- In-memory база данных (легко заменяется на PostgreSQL/MySQL)
-- Структура проекта следует best practices Go
+### Микросервисы (Go)
+
+Все сервисы работают независимо и общаются через API Gateway:
+
+1. **API Gateway** (`:8080`) - Центральная точка входа, маршрутизация запросов
+2. **Users Service** (`:8081`) - Управление пользователями, аутентификация, роли
+3. **Config Service** (`:8082`) - Конфигурация системы, справочники
+4. **Accounting Service** (`:8083`) - Бухгалтерия, транзакции, баланс
+5. **Factory Service** (`:8084`) - Производство, продукты, заказы
+6. **Shop Service** (`:8085`) - Интернет-магазин, каталог, заказы
+7. **Main Service** (`:8086`) - Dashboard, статистика
 
 ### Frontend (React)
-- Single Page Application (SPA)
-- React Router для навигации
-- Context API для управления состоянием
-- Axios для HTTP запросов
-- Защищенные маршруты
+
+Единый SPA с модульной структурой:
+- Авторизация и регистрация
+- Dashboard с навигацией между модулями
+- Отдельные страницы для каждого сервиса
+- Защищенные роуты
+- Адаптивный дизайн
+
+### Shared Library
+
+Общие компоненты для всех сервисов:
+- JWT аутентификация
+- Middleware (Auth, CORS, Role-based access)
+- Модели данных
+- In-memory база данных
+- Proto файлы для gRPC
 
 ## Структура проекта
 
 ```
 marimo/
-├── backend/
-│   ├── cmd/
-│   │   └── server/
-│   │       └── main.go          # Точка входа
-│   ├── internal/
-│   │   ├── handlers/            # HTTP handlers
-│   │   ├── grpc/               # gRPC сервис
-│   │   ├── middleware/         # Middleware (CORS, Auth)
-│   │   ├── models/             # Модели данных
-│   │   └── proto/              # Protobuf определения
-│   ├── pkg/
-│   │   ├── auth/               # JWT утилиты
-│   │   └── database/           # Слой базы данных
-│   ├── Dockerfile
-│   ├── Makefile
-│   └── go.mod
-├── frontend/
-│   ├── public/
+├── shared/                   # Общие библиотеки
+│   ├── proto/               # Protobuf определения
+│   ├── middleware/          # Middleware компоненты
+│   ├── models/              # Модели данных
+│   └── utils/               # Утилиты (database)
+├── services/
+│   ├── gateway/             # API Gateway
+│   │   └── cmd/server/
+│   ├── users/               # Users Service
+│   │   ├── cmd/server/
+│   │   └── internal/handlers/
+│   ├── config/              # Config Service
+│   ├── accounting/          # Accounting Service
+│   ├── factory/             # Factory Service
+│   ├── shop/                # Shop Service
+│   └── main/                # Main Service
+├── frontend/                # React приложение
 │   ├── src/
-│   │   ├── components/         # React компоненты
-│   │   ├── context/            # Context API
-│   │   ├── services/           # API сервисы
-│   │   ├── App.js
-│   │   └── index.js
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── package.json
-└── docker-compose.yml
+│   │   ├── components/
+│   │   │   ├── modules/    # Компоненты модулей
+│   │   │   └── Layout.js   # Главный layout
+│   │   ├── context/        # Context API
+│   │   └── services/       # API сервисы
+├── backend/                 # Старый монолит (для совместимости)
+├── Dockerfile.service       # Generic Dockerfile для сервисов
+├── docker-compose.new.yml   # Оркестрация всех сервисов
+└── README.md
 ```
 
 ## Быстрый старт
 
-### Вариант 1: Docker Compose (рекомендуется)
+### Docker Compose (рекомендуется)
 
-1. Клонируйте репозиторий:
 ```bash
-git clone <repository-url>
-cd marimo
+# Запустить все сервисы
+docker-compose -f docker-compose.new.yml up --build
+
+# Доступ:
+# - Frontend: http://localhost:3000
+# - API Gateway: http://localhost:8080
+# - Отдельные сервисы: 8081-8086
 ```
 
-2. Запустите приложение:
+### Локальная разработка
+
+Запустите каждый сервис отдельно:
+
 ```bash
-docker-compose up --build
-```
-
-3. Откройте браузер:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8080
-- gRPC: localhost:50051
-
-### Вариант 2: Локальная разработка
-
-#### Backend
-
-1. Установите зависимости:
-```bash
-cd backend
-go mod download
-```
-
-2. Запустите сервер:
-```bash
+# Terminal 1 - Users Service
+cd services/users
 go run cmd/server/main.go
-```
 
-Или используйте Makefile:
-```bash
-make run
-```
+# Terminal 2 - Config Service
+cd services/config
+go run cmd/server/main.go
 
-#### Frontend
+# Terminal 3 - Accounting Service
+cd services/accounting
+go run cmd/server/main.go
 
-1. Установите зависимости:
-```bash
+# Terminal 4 - Factory Service
+cd services/factory
+go run cmd/server/main.go
+
+# Terminal 5 - Shop Service
+cd services/shop
+go run cmd/server/main.go
+
+# Terminal 6 - Main Service
+cd services/main
+go run cmd/server/main.go
+
+# Terminal 7 - API Gateway
+cd services/gateway
+go run cmd/server/main.go
+
+# Terminal 8 - Frontend
 cd frontend
 npm install
-```
-
-2. Запустите dev сервер:
-```bash
 npm start
 ```
 
-Приложение откроется на http://localhost:3000
+## Модули системы
 
-## API Endpoints
+### 1. Users (Пользователи)
+- Регистрация и аутентификация
+- Управление пользователями
+- Role-based access control (RBAC)
+- Роли: admin, manager, user, accountant, shop_manager
 
-### REST API
+**Endpoints:**
+- `POST /api/users/register` - Регистрация
+- `POST /api/users/login` - Вход
+- `GET /api/users/profile` - Профиль (защищено)
+- `GET /api/users/list` - Список пользователей (защищено)
+- `POST /api/users/admin/assign-role` - Назначить роль (admin only)
 
-#### Публичные эндпоинты
-- `POST /api/auth/register` - Регистрация пользователя
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "password123",
-    "name": "John Doe"
-  }
-  ```
+### 2. Config (Конфигурация)
+- Настройки системы
+- Справочники
+- Параметры приложения
 
-- `POST /api/auth/login` - Вход в систему
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "password123"
-  }
-  ```
+**Endpoints:**
+- `GET /api/config` - Список настроек
+- `GET /api/config/{key}` - Получить настройку
+- `POST /api/config` - Создать/обновить
+- `DELETE /api/config/{key}` - Удалить
 
-#### Защищенные эндпоинты
-- `GET /api/profile` - Получить профиль пользователя
-  - Headers: `Authorization: Bearer <token>`
+### 3. Accounting (Бухгалтерия)
+- Транзакции (доходы/расходы)
+- Баланс
+- Финансовые отчеты
 
-- `GET /health` - Health check
+**Endpoints:**
+- `GET /api/accounting/transactions` - Список транзакций
+- `POST /api/accounting/transactions` - Создать транзакцию
+- `GET /api/accounting/transactions/{id}` - Детали транзакции
+- `GET /api/accounting/balance` - Текущий баланс
 
-### gRPC API
+### 4. Factory (Производство)
+- Управление продуктами
+- Производственные заказы
+- Статусы производства
 
-Сервис определен в `backend/internal/proto/auth.proto`:
+**Endpoints:**
+- `GET /api/factory/products` - Список продуктов
+- `POST /api/factory/products` - Создать продукт
+- `GET /api/factory/products/{id}` - Детали продукта
+- `PUT /api/factory/products/{id}/status` - Обновить статус
+- `GET /api/factory/orders` - Производственные заказы
+- `POST /api/factory/orders` - Создать заказ
 
-- `Login(LoginRequest) returns (LoginResponse)`
-- `Register(RegisterRequest) returns (RegisterResponse)`
-- `ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse)`
+### 5. Shop (Интернет-магазин)
+- Каталог товаров
+- Корзина
+- Заказы
 
-## Конфигурация
+**Endpoints:**
+- `GET /api/shop/products` - Каталог (публично)
+- `GET /api/shop/products/{id}` - Детали товара
+- `POST /api/shop/orders` - Создать заказ (защищено)
+- `GET /api/shop/orders` - Мои заказы (защищено)
+- `POST /api/shop/admin/products` - Управление товарами (admin)
 
-### Backend
+### 6. Main (Главная)
+- Dashboard
+- Общая статистика
+- Навигация между модулями
 
-Переменные окружения (см. `.env.example`):
-```
-JWT_SECRET=your-secret-key-change-this-in-production
-HTTP_PORT=8080
-GRPC_PORT=50051
-```
-
-### Frontend
-
-Переменные окружения:
-```
-REACT_APP_API_URL=http://localhost:8080/api
-```
-
-## Разработка
-
-### Генерация Protobuf кода
-
-```bash
-cd backend
-make proto
-```
-
-### Сборка
-
-Backend:
-```bash
-cd backend
-make build
-```
-
-Frontend:
-```bash
-cd frontend
-npm run build
-```
+**Endpoints:**
+- `GET /api/main/dashboard` - Данные dashboard
+- `GET /api/main/stats` - Общая статистика
 
 ## Тестирование
 
-### Регистрация и вход
+### Вход в систему
 
-1. Откройте http://localhost:3000
-2. Нажмите "Register here"
-3. Заполните форму регистрации
-4. После успешной регистрации войдите с вашими credentials
-5. Вы будете перенаправлены на Dashboard
+Default admin user:
+- Email: `admin@example.com`
+- Password: `admin123`
 
-### Тестирование API с curl
+### Health Checks
 
-Регистрация:
+Проверить статус всех сервисов:
 ```bash
-curl -X POST http://localhost:8080/api/auth/register \
+curl http://localhost:8080/health
+```
+
+### Тестирование API
+
+```bash
+# Регистрация
+curl -X POST http://localhost:8080/api/users/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"test123","name":"Test User"}'
-```
 
-Вход:
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
+# Вход
+curl -X POST http://localhost:8080/api/users/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"test123"}'
-```
+  -d '{"email":"admin@example.com","password":"admin123"}'
 
-Получить профиль:
-```bash
-curl -X GET http://localhost:8080/api/profile \
-  -H "Authorization: Bearer <your-token>"
+# Получить токен из ответа и использовать его:
+TOKEN="your-jwt-token"
+
+# Защищенный endpoint
+curl -X GET http://localhost:8080/api/users/profile \
+  -H "Authorization: Bearer $TOKEN"
+
+# Dashboard
+curl -X GET http://localhost:8080/api/main/dashboard \
+  -H "Authorization: Bearer $TOKEN"
+
+# Список продуктов (публично)
+curl http://localhost:8080/api/shop/products
 ```
 
 ## Безопасность
 
-- Пароли хэшируются с использованием bcrypt
-- JWT токены для stateless аутентификации
-- CORS настроен для безопасности
-- Защищенные роуты на фронтенде и бэкенде
-- В продакшене обязательно измените `JWT_SECRET`!
+- JWT tokens для аутентификации
+- Role-based access control
+- Bcrypt для паролей
+- CORS настроен
+- Защищенные роуты на backend и frontend
+- Middleware для валидации токенов
 
-## Production Deployment
-
-1. Измените `JWT_SECRET` в `.env`
-2. Настройте HTTPS
-3. Используйте реальную базу данных (PostgreSQL/MySQL)
-4. Настройте правильные CORS origins
+**В продакшен:**
+1. Измените `JWT_SECRET`
+2. Используйте HTTPS
+3. Настройте PostgreSQL/MySQL
+4. Ограничьте CORS origins
 5. Добавьте rate limiting
-6. Настройте логирование и мониторинг
+6. Настройте логирование
+
+## API Gateway
+
+Gateway проксирует запросы к соответствующим сервисам:
+
+```
+/api/users/*      → Users Service (8081)
+/api/config/*     → Config Service (8082)
+/api/accounting/* → Accounting Service (8083)
+/api/factory/*    → Factory Service (8084)
+/api/shop/*       → Shop Service (8085)
+/api/main/*       → Main Service (8086)
+```
+
+## Развертывание
+
+### Docker Compose
+
+```bash
+# Production
+docker-compose -f docker-compose.new.yml up -d
+
+# Проверить логи
+docker-compose -f docker-compose.new.yml logs -f
+
+# Остановить
+docker-compose -f docker-compose.new.yml down
+```
+
+### Kubernetes
+
+Coming soon...
 
 ## Roadmap
 
-- [ ] PostgreSQL/MySQL интеграция
-- [ ] Refresh tokens
-- [ ] Email верификация
-- [ ] Forgot password функционал
-- [ ] OAuth2 (Google, GitHub)
-- [ ] Rate limiting
-- [ ] Тесты (unit, integration)
-- [ ] CI/CD pipeline
+- [x] Микросервисная архитектура
+- [x] API Gateway
+- [x] 6 основных сервисов
+- [x] React фронтенд с модулями
+- [x] JWT аутентификация
+- [x] Role-based access
+- [x] Docker конфигурация
+- [ ] PostgreSQL интеграция
+- [ ] Redis для кеширования
+- [ ] Message queue (RabbitMQ/Kafka)
+- [ ] Service discovery (Consul/Etcd)
+- [ ] Distributed tracing (Jaeger)
+- [ ] Metrics (Prometheus/Grafana)
 - [ ] Kubernetes deployment
+- [ ] CI/CD pipeline
+- [ ] Unit & Integration tests
+- [ ] API documentation (Swagger)
 
 ## Технологии
 
 ### Backend
 - Go 1.21+
-- gorilla/mux (HTTP router)
-- gRPC
-- JWT (golang-jwt)
-- bcrypt (password hashing)
+- gorilla/mux (HTTP routing)
+- JWT authentication
+- gRPC (готово в proto файлах)
+- Microservices architecture
 
 ### Frontend
 - React 18
 - React Router v6
-- Axios
 - Context API
+- Axios
+- Responsive CSS
 
 ### DevOps
-- Docker
-- Docker Compose
+- Docker & Docker Compose
 - Nginx
+- Multi-stage builds
 
 ## Лицензия
 
 MIT
 
-## Контакты
+## Авторы
 
-Для вопросов и предложений создавайте issue в репозитории.
+Marimo ERP Team

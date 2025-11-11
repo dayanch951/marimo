@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package common;
+
+option go_package = "github.com/dayanch951/marimo/shared/proto";
+
+// Общие сообщения для всех сервисов
+message Empty {}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+}
+
+message PaginationRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message PaginationResponse {
+  int32 page = 1;
+  int32 limit = 2;
+  int32 total = 3;
+  int32 total_pages = 4;
+}

@@ -1,19 +1,109 @@
 version: '3.8'
 
 services:
-  backend:
+  # API Gateway
+  gateway:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_PATH: services/gateway
     ports:
       - "8080:8080"
-      - "50051:50051"
+    environment:
+      - JWT_SECRET=your-secret-key-change-this-in-production
+    depends_on:
+      - users
+      - config
+      - accounting
+      - factory
+      - shop
+      - main
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # Users Service
+  users:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_PATH: services/users
+    ports:
+      - "8081:8081"
     environment:
       - JWT_SECRET=your-secret-key-change-this-in-production
     networks:
       - marimo-network
     restart: unless-stopped
 
+  # Config Service
+  config:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_PATH: services/config
+    ports:
+      - "8082:8082"
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # Accounting Service
+  accounting:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_PATH: services/accounting
+    ports:
+      - "8083:8083"
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # Factory Service
+  factory:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_PATH: services/factory
+    ports:
+      - "8084:8084"
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # Shop Service
+  shop:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_PATH: services/shop
+    ports:
+      - "8085:8085"
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # Main Service
+  main:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_PATH: services/main
+    ports:
+      - "8086:8086"
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # Frontend
   frontend:
     build:
       context: ./frontend
@@ -21,7 +111,7 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      - gateway
     environment:
       - REACT_APP_API_URL=http://localhost:8080/api
     networks:
