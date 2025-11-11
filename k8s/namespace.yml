@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: marimo-erp
+  labels:
+    name: marimo-erp
+    environment: production
