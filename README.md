@@ -12,6 +12,10 @@
 - **7 микросервисов** на Go с REST API
 - **API Gateway** для маршрутизации запросов
 - **JWT аутентификация** с role-based access control
+- **Refresh tokens** для безопасной работы с токенами
+- **Rate limiting** для защиты от злоупотреблений
+- **HTTPS/SSL** поддержка для production
+- **Расширенная валидация** входных данных
 - **React SPA** с модульной структурой
 - **Docker Compose** для быстрого запуска
 - **Structured logging** для всех сервисов
@@ -381,20 +385,65 @@ LOG_FORMAT=text  # json, text
 
 ## 🛡️ Безопасность
 
-- ✅ JWT токены с expiration
-- ✅ Bcrypt для хэширования паролей
-- ✅ Role-based access control (RBAC)
-- ✅ CORS configured
-- ✅ Input validation
-- ✅ Protected routes
+### Реализованные функции
 
-**⚠️ В Production:**
-1. Измените `JWT_SECRET` на случайную строку (минимум 32 символа)
-2. Включите PostgreSQL (`USE_POSTGRES=true`)
-3. Используйте HTTPS
-4. Настройте SSL для PostgreSQL (`DB_SSL_MODE=require`)
-5. Добавьте rate limiting
-6. Настройте мониторинг и логирование
+- ✅ **JWT Access Tokens** (15 минут) + **Refresh Tokens** (7 дней)
+- ✅ **Bcrypt** для хэширования паролей (cost 10)
+- ✅ **Role-based access control** (RBAC) с 5 ролями
+- ✅ **Rate Limiting** на уровне Gateway
+  - Login: 10 req/min (burst 3)
+  - Register: 5 req/min (burst 2)
+  - Default: 60 req/min (burst 10)
+- ✅ **HTTPS/SSL** support с nginx reverse proxy
+- ✅ **Input Validation**:
+  - Email format validation
+  - Password strength requirements (8+ chars, upper/lower/digit/special)
+  - Name validation
+  - SQL injection protection
+  - XSS protection
+- ✅ **CORS** configured
+- ✅ **Protected routes** с middleware
+- ✅ **Security headers** (X-Frame-Options, X-XSS-Protection, etc.)
+- ✅ **Token revocation** (logout, security breach)
+
+### API Endpoints
+
+```bash
+# Вход (получение access + refresh tokens)
+POST /api/users/login
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+Response: {
+  "access_token": "eyJ...",
+  "refresh_token": "random-base64-string",
+  "expires_in": 900,
+  "token_type": "Bearer"
+}
+
+# Обновление токена
+POST /api/users/refresh
+{
+  "refresh_token": "previous-refresh-token"
+}
+
+# Выход (отзыв токена)
+POST /api/users/logout
+{
+  "refresh_token": "token-to-revoke"
+}
+```
+
+**⚠️ Чеклист для Production:**
+1. ✅ Измените `JWT_SECRET` на случайную строку (минимум 32 символа)
+2. ✅ Включите PostgreSQL (`USE_POSTGRES=true`)
+3. ✅ Настройте HTTPS с Let's Encrypt (см. `docker-compose.https.yml`)
+4. ✅ Настройте SSL для PostgreSQL (`DB_SSL_MODE=require`)
+5. ✅ Rate limiting уже включен
+6. ⚠️ Настройте мониторинг и логирование
+7. ⚠️ Настройте резервное копирование БД
+8. ⚠️ Включите HSTS в nginx (раскомментируйте в конфиге)
 
 ## 📊 Технологии
 
