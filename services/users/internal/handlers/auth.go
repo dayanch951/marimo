@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/dayanch951/marimo/shared/database"
 	"github.com/dayanch951/marimo/shared/middleware"
 	"github.com/dayanch951/marimo/shared/models"
-	"github.com/dayanch951/marimo/shared/utils"
 )
 
 type AuthHandler struct {
-	db *utils.MemoryDB
+	db database.Database
 }
 
-func NewAuthHandler(db *utils.MemoryDB) *AuthHandler {
+func NewAuthHandler(db database.Database) *AuthHandler {
 	return &AuthHandler{db: db}
 }
 

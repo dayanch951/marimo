@@ -16,6 +16,8 @@
 - **Docker Compose** для быстрого запуска
 - **Structured logging** для всех сервисов
 - **Graceful shutdown** для стабильной работы
+- **PostgreSQL** для постоянного хранения (опционально)
+- **In-memory database** для быстрой разработки
 
 ## 🏗️ Архитектура
 
@@ -53,11 +55,14 @@ marimo/
 │   ├── shop/             # Shop Service (:8085)
 │   └── main/             # Main Service (:8086)
 ├── shared/               # Общие библиотеки
+│   ├── database/        # Database adapters (PostgreSQL, In-memory)
 │   ├── logger/          # Structured logging
 │   ├── middleware/      # JWT, CORS, RBAC
 │   ├── models/          # Модели данных
 │   ├── proto/           # Protobuf (gRPC)
-│   └── utils/           # Database, shutdown
+│   └── utils/           # Shutdown, helpers
+├── migrations/           # SQL миграции для PostgreSQL
+├── scripts/              # Utility scripts (init-db.sh, reset-db.sh)
 ├── frontend/             # React приложение
 │   ├── src/
 │   │   ├── components/
@@ -70,6 +75,75 @@ marimo/
 ├── TEST_PLAN.md         # План тестирования
 └── NEXT_STEPS.md        # Roadmap развития
 ```
+
+## 🗄️ База данных
+
+Система поддерживает **два режима работы с данными**:
+
+### In-Memory Database (по умолчанию)
+- Быстрый старт без установки PostgreSQL
+- Идеально для разработки и тестирования
+- Данные хранятся только в памяти (теряются при перезапуске)
+
+### PostgreSQL (для продакшена)
+- Постоянное хранение данных
+- Полная поддержка транзакций
+- Миграции и seed данные
+
+#### Настройка PostgreSQL
+
+**1. Переключиться на PostgreSQL:**
+
+Отредактируйте `.env` файл:
+```bash
+USE_POSTGRES=true  # Изменить на true
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=marimo_dev
+DB_SSL_MODE=disable
+```
+
+**2. Инициализировать базу данных:**
+
+```bash
+# Убедитесь, что PostgreSQL запущен
+# Затем выполните:
+./scripts/init-db.sh
+```
+
+Скрипт создаст:
+- Таблицу `users` с индексами
+- Триггер для автоматического обновления `updated_at`
+- Администратора по умолчанию
+
+**3. Сбросить базу данных (ОСТОРОЖНО!):**
+
+```bash
+# Удалит и пересоздаст БД
+./scripts/reset-db.sh
+```
+
+#### Структура БД
+
+**Таблица users:**
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,  -- bcrypt hash
+    role VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+```
+
+**Индексы:**
+- `idx_users_email` - быстрый поиск по email
+- `idx_users_role` - фильтрация по ролям
+- `idx_users_created_at` - сортировка по дате
 
 ## 🚀 Быстрый старт
 
@@ -276,18 +350,33 @@ curl http://localhost:8080/api/users/profile \
 
 ### Environment Variables
 
+Создайте файл `.env` на основе `.env.example`:
+
 ```bash
 # JWT Secret
 JWT_SECRET=your-secret-key-change-in-production
 
-# Ports (optional, defaults shown)
-USERS_PORT=8081
+# Service Ports (optional, defaults shown)
 GATEWAY_PORT=8080
+USERS_PORT=8081
 CONFIG_PORT=8082
 ACCOUNTING_PORT=8083
 FACTORY_PORT=8084
 SHOP_PORT=8085
 MAIN_PORT=8086
+
+# Database Configuration
+USE_POSTGRES=false  # true - PostgreSQL, false - in-memory
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=marimo_dev
+DB_SSL_MODE=disable
+
+# Logging
+LOG_LEVEL=info  # debug, info, warn, error
+LOG_FORMAT=text  # json, text
 ```
 
 ## 🛡️ Безопасность
@@ -300,11 +389,12 @@ MAIN_PORT=8086
 - ✅ Protected routes
 
 **⚠️ В Production:**
-1. Измените `JWT_SECRET`
-2. Используйте HTTPS
-3. Настройте PostgreSQL/MySQL
-4. Добавьте rate limiting
-5. Настройте мониторинг
+1. Измените `JWT_SECRET` на случайную строку (минимум 32 символа)
+2. Включите PostgreSQL (`USE_POSTGRES=true`)
+3. Используйте HTTPS
+4. Настройте SSL для PostgreSQL (`DB_SSL_MODE=require`)
+5. Добавьте rate limiting
+6. Настройте мониторинг и логирование
 
 ## 📊 Технологии
 
@@ -312,6 +402,7 @@ MAIN_PORT=8086
 - Go 1.21+
 - gorilla/mux (HTTP routing)
 - JWT (golang-jwt/jwt)
+- PostgreSQL (lib/pq driver)
 - gRPC (protobuf ready)
 - bcrypt (password hashing)
 
@@ -346,7 +437,9 @@ curl http://localhost:8080/health | jq
 См. [NEXT_STEPS.md](NEXT_STEPS.md) для подробного плана развития.
 
 ### Ближайшие задачи:
-- [ ] PostgreSQL интеграция
+- [x] PostgreSQL интеграция ✅
+- [x] Structured logging ✅
+- [x] Graceful shutdown ✅
 - [ ] Unit & Integration тесты
 - [ ] Prometheus metrics
 - [ ] Redis caching
