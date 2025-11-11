@@ -129,16 +129,16 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 
 // EndpointRateLimiter allows different limits for different endpoints
 type EndpointRateLimiter struct {
-	limiters map[string]*RateLimiter
-	mu       sync.RWMutex
-	default  *RateLimiter
+	limiters       map[string]*RateLimiter
+	mu             sync.RWMutex
+	defaultLimiter *RateLimiter
 }
 
 // NewEndpointRateLimiter creates a rate limiter with per-endpoint limits
 func NewEndpointRateLimiter(defaultRate, defaultBurst int) *EndpointRateLimiter {
 	return &EndpointRateLimiter{
-		limiters: make(map[string]*RateLimiter),
-		default:  NewRateLimiter(defaultRate, defaultBurst),
+		limiters:       make(map[string]*RateLimiter),
+		defaultLimiter: NewRateLimiter(defaultRate, defaultBurst),
 	}
 }
 
@@ -157,7 +157,7 @@ func (erl *EndpointRateLimiter) GetLimiter(path string) *RateLimiter {
 	if limiter, exists := erl.limiters[path]; exists {
 		return limiter
 	}
-	return erl.default
+	return erl.defaultLimiter
 }
 
 // Middleware creates middleware for endpoint-specific rate limiting
