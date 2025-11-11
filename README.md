@@ -1,1 +1,382 @@
-# marimo
+# Marimo ERP - Микросервисная архитектура
+
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)
+![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)
+
+Полнофункциональная ERP-система с микросервисной архитектурой на Go и React.
+
+## 🎯 Возможности
+
+- **7 микросервисов** на Go с REST API
+- **API Gateway** для маршрутизации запросов
+- **JWT аутентификация** с role-based access control
+- **React SPA** с модульной структурой
+- **Docker Compose** для быстрого запуска
+- **Structured logging** для всех сервисов
+- **Graceful shutdown** для стабильной работы
+
+## 🏗️ Архитектура
+
+### Микросервисы (Go)
+
+| Сервис | Порт | Описание |
+|--------|------|----------|
+| **Gateway** | `:8080` | API Gateway, маршрутизация |
+| **Users** | `:8081` | Аутентификация, RBAC |
+| **Config** | `:8082` | Конфигурация, справочники |
+| **Accounting** | `:8083` | Бухгалтерия, транзакции |
+| **Factory** | `:8084` | Производство, заказы |
+| **Shop** | `:8085` | Интернет-магазин |
+| **Main** | `:8086` | Dashboard, статистика |
+
+### Frontend (React)
+
+- **Dashboard** - главная страница с модулями
+- **Users** - управление пользователями
+- **Config** - настройки системы
+- **Accounting** - бухгалтерия и финансы
+- **Factory** - производственные процессы
+- **Shop** - каталог и заказы
+
+## 📁 Структура проекта
+
+```
+marimo/
+├── services/              # Микросервисы
+│   ├── gateway/          # API Gateway (:8080)
+│   ├── users/            # Users Service (:8081)
+│   ├── config/           # Config Service (:8082)
+│   ├── accounting/       # Accounting Service (:8083)
+│   ├── factory/          # Factory Service (:8084)
+│   ├── shop/             # Shop Service (:8085)
+│   └── main/             # Main Service (:8086)
+├── shared/               # Общие библиотеки
+│   ├── logger/          # Structured logging
+│   ├── middleware/      # JWT, CORS, RBAC
+│   ├── models/          # Модели данных
+│   ├── proto/           # Protobuf (gRPC)
+│   └── utils/           # Database, shutdown
+├── frontend/             # React приложение
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── modules/ # Страницы модулей
+│   │   │   └── Layout.js
+│   │   ├── context/     # Auth context
+│   │   └── services/    # API calls
+├── docker-compose.yml    # Оркестрация
+├── Dockerfile.service    # Generic Dockerfile
+├── TEST_PLAN.md         # План тестирования
+└── NEXT_STEPS.md        # Roadmap развития
+```
+
+## 🚀 Быстрый старт
+
+### Docker Compose (рекомендуется)
+
+```bash
+# Клонировать репозиторий
+git clone https://github.com/dayanch951/marimo.git
+cd marimo
+
+# Запустить все сервисы
+docker-compose up --build
+
+# Доступ:
+# - Frontend: http://localhost:3000
+# - API Gateway: http://localhost:8080
+# - Health Check: http://localhost:8080/health
+```
+
+### Локальная разработка
+
+#### Backend сервисы
+
+```bash
+# Terminal 1: Users Service
+cd services/users
+go mod tidy
+go run cmd/server/main.go
+
+# Terminal 2: API Gateway
+cd services/gateway
+go run cmd/server/main.go
+
+# Аналогично для остальных сервисов...
+```
+
+#### Frontend
+
+```bash
+cd frontend
+npm install
+npm start
+# Откроется на http://localhost:3000
+```
+
+## 🔐 Аутентификация
+
+### Default Admin
+
+```
+Email: admin@example.com
+Password: admin123
+```
+
+### Роли в системе
+
+- `admin` - полный доступ
+- `manager` - управление производством
+- `accountant` - доступ к бухгалтерии
+- `shop_manager` - управление магазином
+- `user` - базовый доступ
+
+## 📡 API Endpoints
+
+### Users Service (`:8081`)
+
+```bash
+# Регистрация
+POST /api/users/register
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "name": "User Name"
+}
+
+# Вход (получение JWT токена)
+POST /api/users/login
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+# Профиль (требует токен)
+GET /api/users/profile
+Headers: Authorization: Bearer <token>
+
+# Список пользователей (требует токен)
+GET /api/users/list
+Headers: Authorization: Bearer <token>
+
+# Назначить роль (только admin)
+POST /api/users/admin/assign-role
+Headers: Authorization: Bearer <token>
+{
+  "user_id": "uuid",
+  "role": "manager"
+}
+```
+
+### Config Service (`:8082`)
+
+```bash
+# Получить все настройки
+GET /api/config
+Headers: Authorization: Bearer <token>
+
+# Получить конкретную настройку
+GET /api/config/{key}
+
+# Установить настройку
+POST /api/config
+{
+  "key": "app_name",
+  "value": "Marimo ERP",
+  "type": "system"
+}
+```
+
+### Accounting Service (`:8083`)
+
+```bash
+# Баланс (только accountant/admin)
+GET /api/accounting/balance
+Headers: Authorization: Bearer <token>
+
+# Транзакции
+GET /api/accounting/transactions
+
+# Создать транзакцию
+POST /api/accounting/transactions
+{
+  "type": "income",
+  "amount": 1000.00,
+  "description": "Payment received",
+  "category": "Sales"
+}
+```
+
+### Factory Service (`:8084`)
+
+```bash
+# Продукты (manager/admin)
+GET /api/factory/products
+POST /api/factory/products
+
+# Заказы
+GET /api/factory/orders
+POST /api/factory/orders
+```
+
+### Shop Service (`:8085`)
+
+```bash
+# Каталог (публично)
+GET /api/shop/products
+
+# Детали товара
+GET /api/shop/products/{id}
+
+# Создать заказ (требует токен)
+POST /api/shop/orders
+{
+  "items": [
+    {"product_id": "SHOP-1", "quantity": 2, "price": 29.99}
+  ]
+}
+
+# Мои заказы
+GET /api/shop/orders
+```
+
+### Main Service (`:8086`)
+
+```bash
+# Dashboard
+GET /api/main/dashboard
+Headers: Authorization: Bearer <token>
+
+# Статистика
+GET /api/main/stats
+```
+
+## 🧪 Тестирование
+
+Следуйте инструкциям в [TEST_PLAN.md](TEST_PLAN.md)
+
+```bash
+# Быстрый health check
+curl http://localhost:8080/health
+
+# Вход в систему
+curl -X POST http://localhost:8080/api/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin123"}'
+
+# Сохраните токен и используйте:
+TOKEN="your-jwt-token"
+
+curl http://localhost:8080/api/users/profile \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## 🔧 Конфигурация
+
+### Environment Variables
+
+```bash
+# JWT Secret
+JWT_SECRET=your-secret-key-change-in-production
+
+# Ports (optional, defaults shown)
+USERS_PORT=8081
+GATEWAY_PORT=8080
+CONFIG_PORT=8082
+ACCOUNTING_PORT=8083
+FACTORY_PORT=8084
+SHOP_PORT=8085
+MAIN_PORT=8086
+```
+
+## 🛡️ Безопасность
+
+- ✅ JWT токены с expiration
+- ✅ Bcrypt для хэширования паролей
+- ✅ Role-based access control (RBAC)
+- ✅ CORS configured
+- ✅ Input validation
+- ✅ Protected routes
+
+**⚠️ В Production:**
+1. Измените `JWT_SECRET`
+2. Используйте HTTPS
+3. Настройте PostgreSQL/MySQL
+4. Добавьте rate limiting
+5. Настройте мониторинг
+
+## 📊 Технологии
+
+### Backend
+- Go 1.21+
+- gorilla/mux (HTTP routing)
+- JWT (golang-jwt/jwt)
+- gRPC (protobuf ready)
+- bcrypt (password hashing)
+
+### Frontend
+- React 18
+- React Router v6
+- Context API
+- Axios
+- CSS3
+
+### DevOps
+- Docker & Docker Compose
+- Nginx
+- Multi-stage builds
+- Health checks
+
+## 📈 Мониторинг
+
+```bash
+# Логи всех сервисов
+docker-compose logs -f
+
+# Логи конкретного сервиса
+docker-compose logs -f users
+
+# Health check всех сервисов
+curl http://localhost:8080/health | jq
+```
+
+## 🗺️ Roadmap
+
+См. [NEXT_STEPS.md](NEXT_STEPS.md) для подробного плана развития.
+
+### Ближайшие задачи:
+- [ ] PostgreSQL интеграция
+- [ ] Unit & Integration тесты
+- [ ] Prometheus metrics
+- [ ] Redis caching
+- [ ] CI/CD pipeline
+- [ ] Kubernetes deployment
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📝 Лицензия
+
+MIT License - см. [LICENSE](LICENSE)
+
+## 👥 Авторы
+
+Marimo ERP Team
+
+## 🙏 Благодарности
+
+- Go community
+- React team
+- Open source contributors
+
+---
+
+**⭐ Если проект полезен - поставьте звезду!**
+
+**📧 Вопросы?** Создайте [Issue](https://github.com/dayanch951/marimo/issues)
