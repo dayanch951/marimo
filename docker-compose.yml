@@ -23,7 +23,7 @@ services:
       - marimo-network
     restart: unless-stopped
 
-  # Redis (for future caching)
+  # Redis (for caching)
   redis:
     image: redis:7-alpine
     container_name: marimo-redis
@@ -41,6 +41,46 @@ services:
       - marimo-network
     restart: unless-stopped
 
+  # Consul (Service Discovery)
+  consul:
+    image: consul:1.17
+    container_name: marimo-consul
+    ports:
+      - "8500:8500"      # HTTP API
+      - "8600:8600/udp"  # DNS
+    command: agent -server -ui -bootstrap-expect=1 -client=0.0.0.0 -bind=0.0.0.0
+    volumes:
+      - consul_data:/consul/data
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # RabbitMQ (Message Queue)
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: marimo-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-admin}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
   # API Gateway
   gateway:
     build:
@@ -52,13 +92,29 @@ services:
       - "8080:8080"
     environment:
       - JWT_SECRET=your-secret-key-change-this-in-production
+      - CONSUL_ADDR=${CONSUL_ADDR:-consul:8500}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:admin@rabbitmq:5672/}
     depends_on:
-      - users
-      - config
-      - accounting
-      - factory
-      - shop
-      - main
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      users:
+        condition: service_started
+      config:
+        condition: service_started
+      accounting:
+        condition: service_started
+      factory:
+        condition: service_started
+      shop:
+        condition: service_started
+      main:
+        condition: service_started
     networks:
       - marimo-network
     restart: unless-stopped
@@ -82,8 +138,18 @@ services:
       - DB_NAME=${DB_NAME:-marimo_dev}
       - DB_SSL_MODE=${DB_SSL_MODE:-disable}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CONSUL_ADDR=${CONSUL_ADDR:-consul:8500}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:admin@rabbitmq:5672/}
     depends_on:
       postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - marimo-network
@@ -173,6 +239,10 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  consul_data:
+    driver: local
+  rabbitmq_data:
     driver: local
 
 networks:
