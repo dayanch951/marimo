@@ -1,6 +1,46 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: marimo-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-marimo_dev}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
+  # Redis (for future caching)
+  redis:
+    image: redis:7-alpine
+    container_name: marimo-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server ${REDIS_PASSWORD:+--requirepass "$REDIS_PASSWORD"}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - marimo-network
+    restart: unless-stopped
+
   # API Gateway
   gateway:
     build:
@@ -34,6 +74,17 @@ services:
       - "8081:8081"
     environment:
       - JWT_SECRET=your-secret-key-change-this-in-production
+      - USE_POSTGRES=${USE_POSTGRES:-false}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-marimo_dev}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - marimo-network
     restart: unless-stopped
@@ -117,6 +168,12 @@ services:
     networks:
       - marimo-network
     restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
   marimo-network:

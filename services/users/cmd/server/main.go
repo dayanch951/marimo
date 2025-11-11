@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dayanch951/marimo/services/users/internal/handlers"
+	"github.com/dayanch951/marimo/shared/database"
 	"github.com/dayanch951/marimo/shared/logger"
 	"github.com/dayanch951/marimo/shared/middleware"
 	"github.com/dayanch951/marimo/shared/models"
@@ -13,18 +15,53 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const port = ":8081"
-
 func main() {
 	// Initialize logger
 	log := logger.New("users-service")
 	log.Info("Starting Users Service...")
 
+	// Get configuration from environment
+	port := getEnv("USERS_PORT", "8081")
+	if port[0] != ':' {
+		port = ":" + port
+	}
+
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "5432")
+	dbUser := getEnv("DB_USER", "postgres")
+	dbPassword := getEnv("DB_PASSWORD", "postgres")
+	dbName := getEnv("DB_NAME", "marimo_dev")
+	dbSSLMode := getEnv("DB_SSL_MODE", "disable")
+	usePostgres := getEnv("USE_POSTGRES", "false")
+
 	// Initialize database
-	db := utils.NewMemoryDB()
+	var db database.Database
+	var err error
+
+	if usePostgres == "true" {
+		log.Info("Initializing PostgreSQL database...")
+		pgDB, err := database.NewPostgresDB(dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode)
+		if err != nil {
+			log.Fatalf("Failed to connect to PostgreSQL: %v", err)
+		}
+		db = pgDB
+		log.Info("PostgreSQL database connected successfully")
+
+		// Cleanup on shutdown
+		defer func() {
+			if pgDB != nil {
+				pgDB.Close()
+				log.Info("PostgreSQL connection closed")
+			}
+		}()
+	} else {
+		log.Info("Initializing in-memory database...")
+		db = utils.NewMemoryDB()
+		log.Info("In-memory database initialized")
+	}
 
 	// Create default admin user
-	_, err := db.CreateUser("admin@example.com", "admin123", "Admin User", models.RoleAdmin)
+	_, err = db.CreateUser("admin@example.com", "admin123", "Admin User", models.RoleAdmin)
 	if err != nil {
 		log.Infof("Admin user already exists or error: %v", err)
 	} else {
@@ -88,4 +125,11 @@ func healthCheck(log *logger.Logger) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Users Service OK"))
 	}
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
