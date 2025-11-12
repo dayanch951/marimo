@@ -1,0 +1,312 @@
+# Marimo ERP - Production Docker Compose Override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DATABASE
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=1MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c ssl=on
+      -c ssl_cert_file=/etc/ssl/certs/server.crt
+      -c ssl_key_file=/etc/ssl/private/server.key
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups:ro
+      - ./ssl/postgres:/etc/ssl:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # REDIS
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # CONSUL
+  # ============================================================================
+  consul:
+    environment:
+      CONSUL_LOCAL_CONFIG: '{"acl":{"enabled":true,"default_policy":"deny","tokens":{"master":"${CONSUL_TOKEN}"}},"performance":{"raft_multiplier":1}}'
+    command: >
+      agent -server -ui -bootstrap-expect=1 -client=0.0.0.0 -bind=0.0.0.0
+      -data-dir=/consul/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ============================================================================
+  # RABBITMQ
+  # ============================================================================
+  rabbitmq:
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/marimo}
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: 512MB
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # MICROSERVICES (Gateway)
+  # ============================================================================
+  gateway:
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+      - CONSUL_ADDR=${CONSUL_ADDR}
+      - REDIS_ADDR=${REDIS_ADDR}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RATE_LIMIT_ENABLED=true
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - METRICS_ENABLED=true
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================================================
+  # MICROSERVICES (Users)
+  # ============================================================================
+  users:
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - USE_POSTGRES=true
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_SSL_MODE=require
+      - LOG_LEVEL=info
+      - BCRYPT_COST=12
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Apply same patterns for other services
+  config:
+    environment:
+      - USE_POSTGRES=true
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  accounting:
+    environment:
+      - USE_POSTGRES=true
+      - LOG_LEVEL=info
+      - STRIPE_API_KEY=${STRIPE_API_KEY}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  factory:
+    environment:
+      - USE_POSTGRES=true
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  shop:
+    environment:
+      - USE_POSTGRES=true
+      - LOG_LEVEL=info
+      - STRIPE_API_KEY=${STRIPE_API_KEY}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  main:
+    environment:
+      - USE_POSTGRES=true
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # ============================================================================
+  # FRONTEND
+  # ============================================================================
+  frontend:
+    environment:
+      - REACT_APP_API_URL=https://api.yourdomain.com
+      - REACT_APP_ENV=production
+      - NODE_ENV=production
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # ============================================================================
+  # NGINX REVERSE PROXY (SSL Termination)
+  # ============================================================================
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      - gateway
+      - frontend
+    networks:
+      - marimo-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  consul_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  nginx_cache:
+    driver: local
+
+networks:
+  marimo-network:
+    driver: bridge

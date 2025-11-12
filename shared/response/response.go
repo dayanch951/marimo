@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"marimo/shared/errors"
+	"github.com/dayanch951/marimo/shared/errors"
 )
 
 // Response represents the standard API response structure
