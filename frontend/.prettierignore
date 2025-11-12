@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+build/
+dist/
+.next/
+out/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.parcel-cache/
+.webpack-cache/
+
+# Logs
+logs/
+*.log
+
+# Config files
+.env
+.env.local
+.env.production
+
+# Other
+public/
+*.min.js
+*.min.css
