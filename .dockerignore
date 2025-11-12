@@ -1,0 +1,95 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+bin/
+build/
+dist/
+*.exe
+*.test
+*.out
+
+# Dependencies
+vendor/
+
+# Test files
+*_test.go
+testdata/
+tests/
+coverage.out
+coverage.html
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.cache/
+
+# Mobile
+mobile/node_modules/
+mobile/android/
+mobile/ios/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Database
+*.sql
+*.db
+*.sqlite
+
+# Backups
+*.bak
+*.backup
+
+# Old files
+*.old
+*.old.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Kubernetes
+k8s/
+*.yaml
+*.yml
+
+# Scripts (usually not needed in container)
+scripts/
+
+# Migrations (unless specifically needed)
+migrations/
