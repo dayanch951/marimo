@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-integration test-e2e test-load test-coverage clean
+.PHONY: help test test-unit test-integration test-e2e test-load test-coverage lint lint-fix fmt clean update-deps security-scan
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -77,6 +77,61 @@ db-reset: ## Reset database (WARNING: deletes all data)
 ssl-generate: ## Generate self-signed SSL certificates
 	@./scripts/generate-ssl-certs.sh
 
+# Code Quality
+lint: ## Run linters
+	@echo "Running linters..."
+	@golangci-lint run ./...
+	@cd frontend && npm run lint
+
+lint-fix: ## Fix linting issues
+	@echo "Fixing linting issues..."
+	@golangci-lint run --fix ./...
+	@cd frontend && npm run lint:fix
+	@cd frontend && npm run format
+
+fmt: ## Format code
+	@echo "Formatting code..."
+	@go fmt ./...
+	@goimports -w .
+	@cd frontend && npm run format
+
+# Dependencies
+update-deps: ## Update all dependencies
+	@echo "Updating dependencies..."
+	@./scripts/update-dependencies.sh
+
+security-scan: ## Run security scans
+	@echo "Running security scans..."
+	@govulncheck ./... || echo "govulncheck not installed"
+	@cd frontend && npm audit
+
+check: lint test ## Run linters and tests
+
+ci: lint test security-scan ## Run CI checks
+
+# Migrations
+migrate-up: ## Run database migrations
+	@echo "Running migrations..."
+	@./scripts/run-migrations.sh
+
+migrate-create: ## Create new migration (usage: make migrate-create NAME=create_users)
+	@test -n "$(NAME)" || (echo "Please provide NAME=migration_name" && exit 1)
+	@NUM=$$(ls migrations/*.sql 2>/dev/null | wc -l | xargs expr 1 +); \
+	FILE=$$(printf "migrations/%03d_$(NAME).sql" $$NUM); \
+	echo "-- Up" > $$FILE; \
+	echo "" >> $$FILE; \
+	echo "-- Down" >> $$FILE; \
+	echo "Created $$FILE"
+
+# Backup & Restore
+backup: ## Create database backup
+	@echo "Creating backup..."
+	@./scripts/backup.sh
+
+restore: ## Restore from backup (usage: make restore BACKUP=file.sql.gz)
+	@test -n "$(BACKUP)" || (echo "Please provide BACKUP=file.sql.gz" && exit 1)
+	@./scripts/restore.sh $(BACKUP)
+
 # Cleanup
 clean: ## Clean build artifacts
 	@echo "Cleaning..."
@@ -84,3 +139,4 @@ clean: ## Clean build artifacts
 	@rm -f shared/coverage.out shared/coverage.html
 	@find . -name "*.test" -delete
 	@find . -name "coverage.out" -delete
+	@rm -rf frontend/build frontend/dist frontend/node_modules/.cache

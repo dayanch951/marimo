@@ -1,0 +1,184 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs:
+    - vendor
+    - node_modules
+    - .git
+  skip-files:
+    - ".*_test.go"
+    - "mock_.*\\.go"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  enable:
+    # Default linters
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Static analysis
+    - typecheck     # Type checking
+    - unused        # Check for unused code
+
+    # Additional recommended linters
+    - gofmt         # Check code formatting
+    - goimports     # Check import formatting
+    - misspell      # Find misspelled words
+    - unconvert     # Remove unnecessary conversions
+    - unparam       # Find unused function parameters
+    - gosec         # Security issues
+    - goconst       # Repeated strings that could be constants
+    - gocyclo       # Cyclomatic complexity
+    - dupl          # Code clone detection
+    - gocritic      # Comprehensive Go source code linter
+    - revive        # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - prealloc      # Find slice declarations that could potentially be preallocated
+    - exportloopref # Check for pointers to enclosing loop variables
+    - nolintlint    # Reports ill-formed or insufficient nolint directives
+    - stylecheck    # Replacement for golint
+
+  disable:
+    - deadcode      # Deprecated
+    - varcheck      # Deprecated
+    - structcheck   # Deprecated
+    - maligned      # Deprecated
+    - interfacer    # Deprecated
+    - scopelint     # Deprecated
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    check-shadowing: true
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  misspell:
+    locale: US
+
+  lll:
+    line-length: 120
+
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: marimo
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+
+  revive:
+    severity: warning
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G104  # Audit errors not checked
+      - G304  # File path provided as taint input
+    includes:
+      - G201  # SQL query construction using format string
+      - G202  # SQL query construction using string concatenation
+      - G401  # Use of weak cryptographic primitive
+      - G501  # Import blacklist: crypto/md5
+      - G502  # Import blacklist: crypto/des
+
+  stylecheck:
+    checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+
+  unused:
+    check-exported: false
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - goconst
+
+    # Exclude known linters from partially hard-vendored code
+    - path: vendor/
+      linters:
+        - all
+
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+
+    # Exclude lll issues for long lines with go:generate
+    - linters:
+        - lll
+      source: "^//go:generate "
+
+  # Fix found issues (if it's supported by the linter)
+  fix: false
+
+severity:
+  default-severity: error
+  rules:
+    - linters:
+        - revive
+      severity: warning
