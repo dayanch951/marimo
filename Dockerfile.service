@@ -1,5 +1,5 @@
 # Generic Dockerfile for all Go services
-FROM golang:1.21-alpine AS builder
+FROM golang:alpine AS builder
 
 ARG SERVICE_PATH
 
@@ -7,6 +7,9 @@ WORKDIR /app
 
 # Install git for go mod download
 RUN apk add --no-cache git
+
+# Enable GOTOOLCHAIN to automatically download required Go version
+ENV GOTOOLCHAIN=auto
 
 # Copy go.mod files first for better caching
 COPY shared/go.mod shared/go.sum* ./shared/
