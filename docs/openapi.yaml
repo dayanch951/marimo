@@ -1,0 +1,1143 @@
+openapi: 3.0.3
+info:
+  title: Marimo ERP API
+  description: |
+    Comprehensive API documentation for Marimo ERP - a modern cloud-native ERP system
+    built with Go microservices and React frontend.
+
+    ## Features
+    - Multi-tenancy support
+    - Advanced analytics and reporting
+    - Third-party integrations (Stripe, SendGrid)
+    - Webhook system
+    - Real-time WebSocket connections
+
+    ## Authentication
+    All API endpoints (except /auth/login and /auth/register) require JWT authentication.
+    Include the token in the Authorization header: `Authorization: Bearer <token>`
+
+    ## Multi-tenancy
+    Include tenant identification via:
+    - Header: `X-Tenant-ID: <uuid>` or `X-Tenant-Slug: <slug>`
+    - Subdomain: `<tenant-slug>.marimo-erp.com`
+    - Custom domain: `erp.yourcompany.com`
+  version: 1.0.0
+  contact:
+    name: Marimo ERP Team
+    url: https://marimo-erp.com
+    email: support@marimo-erp.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api
+    description: Development server
+  - url: https://api.marimo-erp.com
+    description: Production server
+  - url: https://staging-api.marimo-erp.com
+    description: Staging server
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User management operations
+  - name: Tenants
+    description: Multi-tenancy management
+  - name: Analytics
+    description: Analytics queries and dashboards
+  - name: Webhooks
+    description: Webhook management and delivery
+  - name: Integrations
+    description: Third-party integrations (Stripe, SendGrid)
+  - name: Reports
+    description: Report generation and scheduling
+  - name: WebSocket
+    description: Real-time WebSocket connections
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+  schemas:
+    # Common schemas
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+      required:
+        - error
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        total:
+          type: integer
+          description: Total number of items
+        pages:
+          type: integer
+          description: Total number of pages
+
+    # Auth schemas
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecurePass123!
+      required:
+        - email
+        - password
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        name:
+          type: string
+          minLength: 2
+        company:
+          type: string
+          description: Company/tenant name
+      required:
+        - email
+        - password
+        - name
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        expires_in:
+          type: integer
+          description: Token expiration in seconds
+        user:
+          $ref: '#/components/schemas/User'
+
+    # User schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, user, viewer]
+        tenant_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserList:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # Tenant schemas
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        domain:
+          type: string
+          format: hostname
+          nullable: true
+        status:
+          type: string
+          enum: [trial, active, inactive, suspended]
+        settings:
+          $ref: '#/components/schemas/TenantSettings'
+        subscription:
+          $ref: '#/components/schemas/Subscription'
+        created_at:
+          type: string
+          format: date-time
+        trial_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    TenantSettings:
+      type: object
+      properties:
+        max_users:
+          type: integer
+        max_storage:
+          type: integer
+          description: Storage limit in bytes
+        allowed_features:
+          type: array
+          items:
+            type: string
+        timezone:
+          type: string
+          default: UTC
+        currency:
+          type: string
+          default: USD
+
+    Subscription:
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [trial, starter, professional, enterprise]
+        status:
+          type: string
+          enum: [active, canceled, past_due, trialing]
+        stripe_customer_id:
+          type: string
+          nullable: true
+        stripe_subscription_id:
+          type: string
+          nullable: true
+        current_period_start:
+          type: string
+          format: date-time
+        current_period_end:
+          type: string
+          format: date-time
+
+    # Analytics schemas
+    AnalyticsQuery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        source:
+          type: string
+          description: Table or data source name
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metric'
+        dimensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dimension'
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Filter'
+        time_range:
+          $ref: '#/components/schemas/TimeRange'
+        created_by:
+          type: string
+          format: uuid
+
+    Metric:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [count, sum, average, min, max, percentage]
+        field:
+          type: string
+
+    Dimension:
+      type: object
+      properties:
+        name:
+          type: string
+        field:
+          type: string
+
+    Filter:
+      type: object
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+          enum: [eq, ne, gt, lt, gte, lte, in, like]
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: array
+
+    TimeRange:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+
+    QueryResult:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: object
+        summary:
+          type: object
+        executed_at:
+          type: string
+          format: date-time
+
+    Dashboard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        widgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Widget'
+        created_by:
+          type: string
+          format: uuid
+
+    Widget:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [metric, chart, table, custom]
+        title:
+          type: string
+        query_id:
+          type: string
+          format: uuid
+        config:
+          type: object
+
+    # Webhook schemas
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        secret:
+          type: string
+          description: Secret for HMAC signature verification
+        events:
+          type: array
+          items:
+            type: string
+          example: ["user.created", "payment.succeeded"]
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        status:
+          type: string
+          enum: [active, inactive]
+        created_at:
+          type: string
+          format: date-time
+
+    WebhookDelivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        webhook_id:
+          type: string
+          format: uuid
+        event:
+          type: string
+        payload:
+          type: object
+        status:
+          type: string
+          enum: [pending, success, failed]
+        response_code:
+          type: integer
+          nullable: true
+        response_body:
+          type: string
+          nullable: true
+        attempts:
+          type: integer
+        next_retry_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    # Integration schemas
+    StripePayment:
+      type: object
+      properties:
+        amount:
+          type: integer
+          description: Amount in cents
+        currency:
+          type: string
+          default: usd
+        description:
+          type: string
+        customer_id:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+
+    StripeSubscription:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        price_id:
+          type: string
+        trial_days:
+          type: integer
+          nullable: true
+
+    EmailMessage:
+      type: object
+      properties:
+        to:
+          type: array
+          items:
+            type: string
+            format: email
+        subject:
+          type: string
+        html:
+          type: string
+        text:
+          type: string
+        from:
+          type: string
+          format: email
+        reply_to:
+          type: string
+          format: email
+          nullable: true
+        attachments:
+          type: array
+          items:
+            type: object
+
+paths:
+  # Authentication endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and receive JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register new user and create tenant if needed
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required:
+                - refresh_token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate current token
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  # User endpoints
+  /users:
+    get:
+      tags:
+        - Users
+      summary: List users
+      description: Get paginated list of users in current tenant
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, user, viewer]
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserList'
+
+    post:
+      tags:
+        - Users
+      summary: Create user
+      description: Create new user in current tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                role:
+                  type: string
+                  enum: [admin, user, viewer]
+                password:
+                  type: string
+              required:
+                - email
+                - name
+                - password
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user
+      description: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Update user information
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                role:
+                  type: string
+                  enum: [admin, user, viewer]
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Delete user from tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: User deleted
+
+  # Tenant endpoints
+  /tenants:
+    get:
+      tags:
+        - Tenants
+      summary: List tenants
+      description: List all tenants (admin only)
+      responses:
+        '200':
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant'
+
+    post:
+      tags:
+        - Tenants
+      summary: Create tenant
+      description: Create new tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                domain:
+                  type: string
+                  nullable: true
+              required:
+                - name
+                - slug
+      responses:
+        '201':
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+
+  /tenants/{id}:
+    get:
+      tags:
+        - Tenants
+      summary: Get tenant
+      description: Get tenant by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+
+  /tenants/{id}/subscription:
+    put:
+      tags:
+        - Tenants
+      summary: Update subscription
+      description: Update tenant subscription plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+                  enum: [starter, professional, enterprise]
+              required:
+                - plan
+      responses:
+        '200':
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+
+  # Analytics endpoints
+  /analytics/queries:
+    get:
+      tags:
+        - Analytics
+      summary: List analytics queries
+      description: Get list of saved queries
+      responses:
+        '200':
+          description: List of queries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalyticsQuery'
+
+    post:
+      tags:
+        - Analytics
+      summary: Create query
+      description: Create and save analytics query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsQuery'
+      responses:
+        '201':
+          description: Query created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsQuery'
+
+  /analytics/queries/{id}/execute:
+    post:
+      tags:
+        - Analytics
+      summary: Execute query
+      description: Execute analytics query and get results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResult'
+
+  /analytics/dashboards:
+    get:
+      tags:
+        - Analytics
+      summary: List dashboards
+      description: Get list of dashboards
+      responses:
+        '200':
+          description: List of dashboards
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dashboards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dashboard'
+
+    post:
+      tags:
+        - Analytics
+      summary: Create dashboard
+      description: Create new dashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Dashboard'
+      responses:
+        '201':
+          description: Dashboard created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+
+  # Webhook endpoints
+  /webhooks:
+    get:
+      tags:
+        - Webhooks
+      summary: List webhooks
+      description: Get list of configured webhooks
+      responses:
+        '200':
+          description: List of webhooks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Webhook'
+
+    post:
+      tags:
+        - Webhooks
+      summary: Create webhook
+      description: Configure new webhook endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items:
+                    type: string
+                headers:
+                  type: object
+              required:
+                - url
+                - events
+      responses:
+        '201':
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+
+  /webhooks/{id}:
+    delete:
+      tags:
+        - Webhooks
+      summary: Delete webhook
+      description: Remove webhook configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Webhook deleted
+
+  /webhooks/{id}/deliveries:
+    get:
+      tags:
+        - Webhooks
+      summary: List deliveries
+      description: Get webhook delivery history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, success, failed]
+      responses:
+        '200':
+          description: List of deliveries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookDelivery'
+
+  # Integration endpoints
+  /integrations/stripe/payment:
+    post:
+      tags:
+        - Integrations
+      summary: Create Stripe payment
+      description: Create payment intent via Stripe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StripePayment'
+      responses:
+        '200':
+          description: Payment intent created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client_secret:
+                    type: string
+                  payment_intent_id:
+                    type: string
+
+  /integrations/stripe/subscription:
+    post:
+      tags:
+        - Integrations
+      summary: Create Stripe subscription
+      description: Create subscription via Stripe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StripeSubscription'
+      responses:
+        '200':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription_id:
+                    type: string
+                  status:
+                    type: string
+
+  /integrations/sendgrid/email:
+    post:
+      tags:
+        - Integrations
+      summary: Send email via SendGrid
+      description: Send email using SendGrid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailMessage'
+      responses:
+        '200':
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message_id:
+                    type: string
+
+  # WebSocket endpoint (documentation only - actual connection via WS protocol)
+  /ws:
+    get:
+      tags:
+        - WebSocket
+      summary: WebSocket connection
+      description: |
+        Establish WebSocket connection for real-time updates.
+
+        Connection URL: `ws://localhost:8080/ws?token=<jwt_token>`
+
+        Message types:
+        - `subscribe`: Subscribe to events
+        - `unsubscribe`: Unsubscribe from events
+        - `ping`: Keep-alive ping
+
+        Event types received:
+        - `user.updated`
+        - `payment.succeeded`
+        - `report.generated`
+        - Custom events
+      responses:
+        '101':
+          description: Switching Protocols - WebSocket connection established
