@@ -49,11 +49,11 @@ RUN sed -i 's/user  nginx;/user  appuser;/' /etc/nginx/nginx.conf || true
 USER appuser
 
 # Expose port
-EXPOSE 3000
+EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/ || exit 1
+    CMD curl -f http://localhost:80/ || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

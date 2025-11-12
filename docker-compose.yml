@@ -164,6 +164,28 @@ services:
         SERVICE_PATH: services/config
     ports:
       - "8082:8082"
+    environment:
+      - USE_POSTGRES=${USE_POSTGRES:-false}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-marimo_dev}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CONSUL_ADDR=${CONSUL_ADDR:-consul:8500}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:admin@rabbitmq:5672/}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - marimo-network
     restart: unless-stopped
@@ -177,6 +199,29 @@ services:
         SERVICE_PATH: services/accounting
     ports:
       - "8083:8083"
+    environment:
+      - USE_POSTGRES=${USE_POSTGRES:-false}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-marimo_dev}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CONSUL_ADDR=${CONSUL_ADDR:-consul:8500}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:admin@rabbitmq:5672/}
+      - STRIPE_API_KEY=${STRIPE_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - marimo-network
     restart: unless-stopped
@@ -190,6 +235,28 @@ services:
         SERVICE_PATH: services/factory
     ports:
       - "8084:8084"
+    environment:
+      - USE_POSTGRES=${USE_POSTGRES:-false}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-marimo_dev}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CONSUL_ADDR=${CONSUL_ADDR:-consul:8500}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:admin@rabbitmq:5672/}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - marimo-network
     restart: unless-stopped
@@ -203,6 +270,29 @@ services:
         SERVICE_PATH: services/shop
     ports:
       - "8085:8085"
+    environment:
+      - USE_POSTGRES=${USE_POSTGRES:-false}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-marimo_dev}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CONSUL_ADDR=${CONSUL_ADDR:-consul:8500}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:admin@rabbitmq:5672/}
+      - STRIPE_API_KEY=${STRIPE_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - marimo-network
     restart: unless-stopped
@@ -216,6 +306,28 @@ services:
         SERVICE_PATH: services/main
     ports:
       - "8086:8086"
+    environment:
+      - USE_POSTGRES=${USE_POSTGRES:-false}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-marimo_dev}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CONSUL_ADDR=${CONSUL_ADDR:-consul:8500}
+      - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://admin:admin@rabbitmq:5672/}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - marimo-network
     restart: unless-stopped
