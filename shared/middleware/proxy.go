@@ -60,7 +60,7 @@ func (rp *ResilientProxy) ProxyRequest(serviceName string) http.HandlerFunc {
 			cacheKey := fmt.Sprintf("proxy:%s:%s", serviceName, r.URL.Path)
 			var cachedResponse CachedResponse
 
-			err := rp.config.Cache.Get(cacheKey, &cachedResponse)
+			err := rp.config.Cache.Get(r.Context(), cacheKey, &cachedResponse)
 			if err == nil {
 				log.Printf("Cache hit for %s", cacheKey)
 				w.Header().Set("X-Cache", "HIT")
@@ -95,7 +95,6 @@ func (rp *ResilientProxy) executeRequest(w http.ResponseWriter, r *http.Request,
 	defer cancel()
 
 	var lastResp *http.Response
-	var lastErr error
 
 	// Retry logic
 	err := resilience.Retry(ctx, rp.config.RetryPolicy, func() error {
@@ -167,7 +166,7 @@ func (rp *ResilientProxy) executeRequest(w http.ResponseWriter, r *http.Request,
 			ContentType: lastResp.Header.Get("Content-Type"),
 		}
 
-		if err := rp.config.Cache.Set(cacheKey, cached, rp.config.CacheTTL); err != nil {
+		if err := rp.config.Cache.Set(r.Context(), cacheKey, cached, rp.config.CacheTTL); err != nil {
 			log.Printf("Failed to cache response: %v", err)
 		}
 	}

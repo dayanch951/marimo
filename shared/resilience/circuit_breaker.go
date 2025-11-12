@@ -229,7 +229,7 @@ func (cb *CircuitBreaker) currentState(now time.Time) (State, uint64) {
 		}
 	}
 
-	return cb.state, cb.counts.requests
+	return cb.state, uint64(cb.counts.requests)
 }
 
 func (cb *CircuitBreaker) setState(state State, now time.Time) {

@@ -7,8 +7,8 @@ import (
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
-	"marimo/shared/errors"
-	"marimo/shared/response"
+	"github.com/dayanch951/marimo/shared/errors"
+	"github.com/dayanch951/marimo/shared/response"
 )
 
 // ErrorHandler middleware handles panics and errors

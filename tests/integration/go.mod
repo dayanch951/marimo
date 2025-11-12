@@ -1,6 +1,6 @@
 module github.com/dayanch951/marimo/tests/integration
 
-go 1.21
+go 1.24.0
 
 require (
 	github.com/dayanch951/marimo/services/users v0.0.0
