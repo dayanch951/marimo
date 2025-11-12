@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage
+  namespace: marimo-erp
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: marimo-erp
+spec:
+  # Run daily at 2 AM UTC
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_NAME="marimo_backup_${TIMESTAMP}"
+                  BACKUP_DIR="/backups"
+
+                  echo "Starting backup: $BACKUP_NAME"
+
+                  # Create backup
+                  PGPASSWORD=$DB_PASSWORD pg_dump \
+                    -h $DB_HOST \
+                    -U $DB_USER \
+                    -d $DB_NAME \
+                    -Fc \
+                    -f ${BACKUP_DIR}/${BACKUP_NAME}.dump
+
+                  # Compress
+                  gzip ${BACKUP_DIR}/${BACKUP_NAME}.dump
+
+                  # Generate checksum
+                  cd $BACKUP_DIR
+                  sha256sum ${BACKUP_NAME}.dump.gz > ${BACKUP_NAME}.sha256
+
+                  # Create metadata
+                  cat > ${BACKUP_NAME}.meta <<EOF
+                  {
+                    "timestamp": "$TIMESTAMP",
+                    "database": "$DB_NAME",
+                    "size": "$(stat -c%s ${BACKUP_NAME}.dump.gz)"
+                  }
+                  EOF
+
+                  # Clean up old backups (keep last 30 days)
+                  find $BACKUP_DIR -name "marimo_backup_*.dump.gz" -mtime +30 -delete
+                  find $BACKUP_DIR -name "marimo_backup_*.sha256" -mtime +30 -delete
+                  find $BACKUP_DIR -name "marimo_backup_*.meta" -mtime +30 -delete
+
+                  echo "Backup completed: ${BACKUP_NAME}.dump.gz"
+                  ls -lh ${BACKUP_DIR}/${BACKUP_NAME}.dump.gz
+              env:
+                - name: DB_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: marimo-config
+                      key: DB_HOST
+                - name: DB_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: marimo-config
+                      key: DB_NAME
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: marimo-secrets
+                      key: DB_USER
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: marimo-secrets
+                      key: DB_PASSWORD
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "250m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "1000m"
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: backup-storage
+---
+# Optional: Backup to S3 (uncomment and configure)
+# apiVersion: batch/v1
+# kind: CronJob
+# metadata:
+#   name: postgres-backup-s3-sync
+#   namespace: marimo-erp
+# spec:
+#   schedule: "30 2 * * *"  # 30 minutes after backup
+#   jobTemplate:
+#     spec:
+#       template:
+#         spec:
+#           restartPolicy: OnFailure
+#           containers:
+#             - name: s3-sync
+#               image: amazon/aws-cli:latest
+#               command:
+#                 - /bin/sh
+#                 - -c
+#                 - |
+#                   aws s3 sync /backups s3://your-backup-bucket/marimo/postgres/ \
+#                     --storage-class STANDARD_IA \
+#                     --exclude "*" \
+#                     --include "marimo_backup_*.dump.gz" \
+#                     --include "marimo_backup_*.sha256" \
+#                     --include "marimo_backup_*.meta"
+#               env:
+#                 - name: AWS_ACCESS_KEY_ID
+#                   valueFrom:
+#                     secretKeyRef:
+#                       name: aws-credentials
+#                       key: access_key_id
+#                 - name: AWS_SECRET_ACCESS_KEY
+#                   valueFrom:
+#                     secretKeyRef:
+#                       name: aws-credentials
+#                       key: secret_access_key
+#                 - name: AWS_DEFAULT_REGION
+#                   value: us-east-1
+#               volumeMounts:
+#                 - name: backup-storage
+#                   mountPath: /backups
+#                   readOnly: true
+#           volumes:
+#             - name: backup-storage
+#               persistentVolumeClaim:
+#                 claimName: backup-storage

@@ -40,3 +40,19 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Kubernetes secrets
+k8s/secrets.yml
+k8s/**/secrets.yml
+*.secret.yml
+
+# Backups
+backups/
+*.dump
+*.dump.gz
+*.sql
+*.sql.gz
+
+# Temporary files
+tmp/
+temp/

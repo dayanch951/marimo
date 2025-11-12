@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-blue
+  namespace: marimo-erp
+  labels:
+    app: api-gateway
+    color: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+      color: blue
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        color: blue
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: api-gateway
+          image: marimo-erp/api-gateway:blue
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: marimo-config
+                  key: API_GATEWAY_PORT
+            - name: ENVIRONMENT
+              value: "production-blue"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: marimo-config
+                  key: LOG_LEVEL
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: marimo-config
+                  key: CONSUL_HTTP_ADDR
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: marimo-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: marimo-config
+                  key: REDIS_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: marimo-secrets
+                  key: REDIS_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: marimo-secrets
+                  key: JWT_SECRET
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
