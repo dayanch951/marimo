@@ -43,7 +43,7 @@ services:
 
   # Consul (Service Discovery)
   consul:
-    image: consul:1.17
+    image: hashicorp/consul:1.17
     container_name: marimo-consul
     ports:
       - "8500:8500"      # HTTP API

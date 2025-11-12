@@ -5,16 +5,23 @@ ARG SERVICE_PATH
 
 WORKDIR /app
 
-# Copy shared module first
-COPY shared/ ./shared/
+# Install git for go mod download
+RUN apk add --no-cache git
 
-# Copy service module
+# Copy go.mod files first for better caching
+COPY shared/go.mod shared/go.sum* ./shared/
 COPY ${SERVICE_PATH}/go.mod ${SERVICE_PATH}/go.sum* ./service/
+
+# Download dependencies
+WORKDIR /app/shared
+RUN go mod download || true
+
 WORKDIR /app/service
 RUN go mod download || true
 
-# Copy service source
+# Copy source code
 WORKDIR /app
+COPY shared/ ./shared/
 COPY ${SERVICE_PATH}/ ./service/
 
 # Build

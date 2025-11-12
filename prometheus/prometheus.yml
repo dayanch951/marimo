@@ -1,0 +1,106 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'marimo-erp'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway
+  - job_name: 'gateway'
+    consul_sd_configs:
+      - server: 'consul:8500'
+        services: ['gateway']
+    static_configs:
+      - targets: ['gateway:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Users Service
+  - job_name: 'users'
+    consul_sd_configs:
+      - server: 'consul:8500'
+        services: ['users']
+    static_configs:
+      - targets: ['users:8081']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Config Service
+  - job_name: 'config'
+    static_configs:
+      - targets: ['config:8082']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Accounting Service
+  - job_name: 'accounting'
+    static_configs:
+      - targets: ['accounting:8083']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Factory Service
+  - job_name: 'factory'
+    static_configs:
+      - targets: ['factory:8084']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Shop Service
+  - job_name: 'shop'
+    static_configs:
+      - targets: ['shop:8085']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Main Service
+  - job_name: 'main'
+    static_configs:
+      - targets: ['main:8086']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+
+  # RabbitMQ
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    scrape_interval: 30s
+
+  # Consul
+  - job_name: 'consul'
+    static_configs:
+      - targets: ['consul:8500']
+    metrics_path: '/v1/agent/metrics'
+    params:
+      format: ['prometheus']
+    scrape_interval: 30s

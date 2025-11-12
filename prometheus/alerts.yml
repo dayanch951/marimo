@@ -1,0 +1,93 @@
+groups:
+  - name: marimo_erp_alerts
+    interval: 30s
+    rules:
+      # Service Down Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute."
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "{{ $labels.job }} is experiencing >5% error rate for 5 minutes."
+
+      # High Latency
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.job }}"
+          description: "{{ $labels.job }} P95 latency is above 1 second for 5 minutes."
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionFailure
+        expr: rate(db_connection_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failures on {{ $labels.job }}"
+          description: "{{ $labels.job }} is experiencing database connection issues."
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.container_name }}"
+          description: "{{ $labels.container_name }} is using more than 90% of its memory limit."
+
+      # High Authentication Failure Rate (possible attack)
+      - alert: HighAuthFailureRate
+        expr: rate(auth_attempts_total{status="failed"}[5m]) / rate(auth_attempts_total[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High authentication failure rate"
+          description: "More than 50% of authentication attempts are failing - possible attack!"
+
+      # RabbitMQ Queue Size
+      - alert: RabbitMQQueueTooLarge
+        expr: rabbitmq_queue_messages > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RabbitMQ queue {{ $labels.queue }} is too large"
+          description: "Queue {{ $labels.queue }} has more than 1000 messages for 10 minutes."
+
+      # Redis High Memory Usage
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis is running out of memory"
+          description: "Redis is using more than 90% of allocated memory."
+
+      # PostgreSQL Connection Pool Exhaustion
+      - alert: PostgresConnectionPoolExhaustion
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection pool is nearly exhausted"
+          description: "PostgreSQL is using more than 80% of available connections."

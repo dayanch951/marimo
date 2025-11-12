@@ -10,8 +10,8 @@ WORKDIR /app
 # Install dependencies first (for better caching)
 COPY package*.json ./
 
-# Install dependencies with clean install (only production)
-RUN npm ci --only=production && \
+# Install dependencies (npm install because package-lock may not exist)
+RUN npm install --only=production && \
     npm cache clean --force
 
 # Copy source code
