@@ -2,7 +2,7 @@
 # syntax=docker/dockerfile:1
 
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -10,8 +10,9 @@ WORKDIR /app
 # Install dependencies first (for better caching)
 COPY package*.json ./
 
-# Install dependencies (npm install because package-lock may not exist)
-RUN npm install --legacy-peer-deps && \
+# Clean install with overrides support
+RUN rm -f package-lock.json && \
+    npm install --legacy-peer-deps --no-audit && \
     npm cache clean --force
 
 # Copy source code
