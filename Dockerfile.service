@@ -11,24 +11,25 @@ RUN apk add --no-cache git
 # Enable GOTOOLCHAIN to automatically download required Go version
 ENV GOTOOLCHAIN=auto
 
-# Copy go.mod files first for better caching
-COPY shared/go.mod shared/go.sum* ./shared/
-COPY ${SERVICE_PATH}/go.mod ${SERVICE_PATH}/go.sum* ./service/
+# Copy shared module first (needed for replace directives in go.mod)
+COPY shared/ ./shared/
 
-# Download dependencies
+# Copy go.mod files for service (maintain project structure)
+COPY ${SERVICE_PATH}/go.mod ${SERVICE_PATH}/go.sum* ./${SERVICE_PATH}/
+
+# Download dependencies for shared
 WORKDIR /app/shared
 RUN go mod download || true
 
-WORKDIR /app/service
+# Download dependencies for service
+WORKDIR /app/${SERVICE_PATH}
 RUN go mod download || true
 
-# Copy source code
-WORKDIR /app
-COPY shared/ ./shared/
-COPY ${SERVICE_PATH}/ ./service/
+# Copy service source code
+COPY ${SERVICE_PATH}/ /app/${SERVICE_PATH}/
 
 # Build
-WORKDIR /app/service
+WORKDIR /app/${SERVICE_PATH}
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server ./cmd/server
 
 # Final stage
@@ -38,6 +39,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-COPY --from=builder /app/service/server .
+COPY --from=builder /app/${SERVICE_PATH}/server .
 
 CMD ["./server"]

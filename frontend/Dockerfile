@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies (npm install because package-lock may not exist)
-RUN npm install --only=production && \
+RUN npm install --legacy-peer-deps && \
     npm cache clean --force
 
 # Copy source code
